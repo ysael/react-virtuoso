@@ -1,9 +1,7 @@
 *.log
 .DS_Store
 node_modules
-.rts2_cache_*
-dist
 .cache
-.size-snapshot.json
-*.d.ts
-storybook-static
+dist
+e2e/__index.html
+

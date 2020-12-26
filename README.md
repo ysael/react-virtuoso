@@ -1,34 +1,35 @@
-<img src="https://user-images.githubusercontent.com/13347/57673110-85aab180-7623-11e9-97b4-27bbdcf8cf40.png" width="292">
+<img src="https://user-images.githubusercontent.com/13347/101237112-ec4c6000-36de-11eb-936d-4b6b7ec94976.png" width="229" />
 
-[![npm version](https://badge.fury.io/js/react-virtuoso.svg)](https://badge.fury.io/js/react-virtuoso)
+[![npm version](https://badge.fury.io/js/react-virtuoso.svg)](//badge.fury.io/js/react-virtuoso)
 
-**React Virtuoso** is a simple, easy to use React virtualized list component that can render huge data sets.
-Out of the box, Virtuoso:
+**React Virtuoso** is the most powerful React virtual list component, full stop. Here's why:
 
-- Handles items with **variable dynamic height**; no manual measurements or hard-coding of item heights necessary;
-- Supports **grouping with sticky group headers** (`GroupedVirtuoso`);
-- Supports **responsive grid layout** (`VirtuosoGrid`);
-- Automatically handles content resizing;
-- Can render footer at the end of the list;
-- Can **pin the first `N` items** to the top of the list.
+- Variable sized items out of the box; no manual measurements or hard-coding item heights is necessary;
+- Support for [reverse (bottom up) scrolling and prepending items](//virtuoso.dev/prepend-items/) (chat, feeds, etc);
+- [Grouped mode with sticky headers](//virtuoso.dev/grouped-by-first-letter/);
+- [Responsive grid layout](//virtuoso.dev/grid-responsive-columns/);
+- [Automatic handling of content resize](//virtuoso.dev/auto-resizing/);
+- [Custom Header, Footer, and empty list components](//virtuoso.dev/customize-structure/);
+- [Pinned top items](//virtuoso.dev/top-items/);
+- [Endless scrolling](//virtuoso.dev/endless-scrolling/), [press to load more](//virtuoso.dev/press-to-load-more/);
+- [Initial top most item index](//virtuoso.dev/initial-index/);
+- [Scroll to index method](//virtuoso.dev/scroll-to-index/).
 
-For live examples and documentation, check the [website](//virtuoso.dev).
+For live examples and documentation, check the [documentation website](//virtuoso.dev).
+
+## Sponsors
+
+[![Stream](https://i.imgur.com/oU7XYkk.png)](https://getstream.io/?utm_source=github&utm_medium=react-virtuoso&utm_campaign=sponsorship)
+
+React Virtuoso is proudly sponsored by [Stream](https://getstream.io/?utm_source=github&utm_medium=react-virtuoso&utm_campaign=sponsorship), the leading provider in enterprise grade [Feed](https://getstream.io/activity-feeds/?utm_source=github&utm_medium=react-virtuoso&utm_campaign=sponsorship) & [Chat](https://getstream.io/chat/?utm_source=github&utm_medium=react-virtuoso&utm_campaign=sponsorship) APIs. To learn more about Stream, [click here](https://getstream.io/?utm_source=github&utm_medium=react-virtuoso&utm_campaign=sponsorship).
+
+If you are using Virtuoso for work, [sponsor it](https://www.patreon.com/react_virtuoso). Any donation helps a lot with the project development and maintenance.
 
 ## Get Started
-
-Install the package in your React project:
 
 ```sh
 npm install react-virtuoso
 ```
-
-Or, if yarn is your thing:
-
-```sh
-yarn add react-virtuoso
-```
-
-Then, put the component somewhere in your tree:
 
 ```jsx
 import * as React from 'react'
@@ -37,58 +38,54 @@ import { Virtuoso } from 'react-virtuoso'
 
 const App = () => {
   return (
-    <Virtuoso style={{ width: '200px', height: '400px' }} totalCount={200} item={index => <div>Item {index}</div>} />
+    <Virtuoso style={{ height: '400px' }} totalCount={200} itemContent={index => <div>Item {index}</div>} />
   )
 }
 
 ReactDOM.render(<App />, document.getElementById('root'))
 ```
 
-### Grouping
+## [Grouped Mode](//virtuoso.dev/grouped-by-first-letter/)
 
-The `GroupedVirtuoso` component is similar to the "flat" `Virtuoso`, with the following differences:
+The `GroupedVirtuoso` component is a variant of the "flat" `Virtuoso`, with the following differences:
 
-- Instead of `totalCount`, the component accepts `groupCounts: number[]`, which specifies the amount of items in each group.
+- Instead of `totalCount`, the component exposes `groupCounts: number[]` property, which specifies the amount of items in each group.
   For example, passing `[20, 30]` will render two groups with 20 and 30 items each;
-- In addition the `item` render prop, the component requires an additional `group` render prop,
-  which renders the **group header**. The `group` callback receives the zero-based group index as a parameter;
-- The `item` render prop gets called with an additional second parameter, `groupIndex: number`.
+- In addition the `itemContent` property, the component requires an additional `groupContent` property,
+  which renders the **group header**. The `groupContent` callback receives the zero-based group index as a parameter.
 
-Check the
-[grouped numbers](https://virtuoso.dev/grouped-numbers),
-[grouped by first letter](https://virtuoso.dev/grouped-by-first-letter) and
-[groups with load on demand](https://virtuoso.dev/grouped-with-load-on-demand)
-examples.
-
-### Grid
+## [Grid](//virtuoso.dev/grid-responsive-columns/)
 
 The `VirtuosoGrid` component displays **same sized items** in multiple columns.
 The layout and item sizing is controlled through CSS class properties, which allows you to use media queries, min-width, percentage, etc.
 
-Check the [responsive grid columns](https://virtuoso.dev/grid-responsive-columns) example for a sample implementation.
+## Works With Your UI Library of Choice
 
-### Footer
-
-The component accepts an optional
-`footer` [render property](https://reactjs.org/docs/render-props.html),
-which is rendered after all items.
-The footer can be used to host a "load more" button
-or an indicator that the user has reached the end of the list.
-
-Check the [footer](https://virtuoso.dev/footer), [press load more](https://virtuoso.dev/press-to-load-more) and [endless scrolling](https://virtuoso.dev/endless-scrolling) examples for practical applications of the footer.
-
-### Pinned Items
-
-The component accepts an optional `topItems` property, that specifies
-how many of the items to keep "pinned" at the top of the list. Check the [top items](https://virtuoso.dev/top-items) example.
+You can customize the markup up to your requirements - check [the Material UI list demo](//virtuoso.dev/material-ui-endless-scrolling/).
+If you need to support reordering, [check the React Sortable HOC example](//virtuoso.dev/react-sortable-hoc/).
 
 ## Documentation and Demos
 
-For in-depth documentation and live examples of the supported features and live demos, check the [website](https://virtuoso.dev).
+For in-depth documentation and live examples of the supported features and live demos, check the [documentation website](//virtuoso.dev).
 
 ## Author
 
-Petyo Ivanov [@petyosi](https://twitter.com/petyosi)
+Petyo Ivanov [@petyosi](//twitter.com/petyosi).
+
+## Contributing 
+
+### Fixes and new Features
+
+To run the tests, use `npm run test`. 
+An end-to-end browser-based test suite is runnable with `npm run e2e`, with the pages being `e2e/*.tsx` and the tests `e2e/*.test.ts`. 
+
+A convenient way to debug something is to preview one the e2e test cases in the browser. 
+To do that, run `npm run preview e2e/hello.tsx`. There are several other examples in the `e2e` directory.
+
+### Docs 
+
+The documentation site is built with docusaurus and the content is available in the `site/docs` directory.
+The API reference is generated from the doc comments in `src/components.tsx`.
 
 ## License
 

@@ -1,0 +1,79 @@
+name: CI
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      CI: true
+      SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      USE_SSH: true
+      GIT_USER: petyosi
+      NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+
+    steps:
+      - name: Begin CI...
+        uses: actions/checkout@v2
+
+      - name: Use Node 14
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.x
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+
+      - uses: actions/cache@v2
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: yarn install 
+        run: |
+          yarn install --frozen-lockfile
+          yarn install --frozen-lockfile --cwd site
+
+      - name: run lint and tests
+        run: |
+          yarn lint
+          yarn test -- --ci 
+          yarn e2e -- --ci
+
+      - name: build site
+        run: |
+          cd site 
+          yarn build
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
+
+      - name: Configure GH Access
+        if: github.ref == 'refs/heads/master'
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          git config --global user.email "underlog@gmail.com"
+          git config --global user.name "Petyo Ivanov"
+          cat <<EOT >> ~/.ssh/config
+          Host github.com
+          HostName github.com
+          IdentityFile ~/.ssh/id_rsa
+          EOT
+
+      - name: Deploy docs
+        if: github.ref == 'refs/heads/master'
+        env:
+          GIT_USER: git
+          USE_SSH: true
+        run: |
+          cd site
+          yarn deploy

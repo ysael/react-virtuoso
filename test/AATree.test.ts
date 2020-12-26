@@ -1,36 +1,81 @@
 /* eslint @typescript-eslint/explicit-function-return-type: 0 */
 
-import { AATree } from '../src/AATree'
-import { range, shuffle, partition } from 'lodash'
+import * as AA from '../src/AATree'
+import { AANode } from '../src/AATree'
 
-describe('aa tree behavior', () => {
-  const RANGE_END = 100
+function range(start: number, end: number) {
+  const result = []
+  for (let index = start; index <= end; index++) {
+    result.push(index)
+  }
+  return result
+}
 
-  function numbersToAATree(numbers: number[]): AATree<number> {
-    return numbers.reduce((tree: AATree<number>, n) => tree.insert(n, n), AATree.empty<number>())
+function shuffle(array: number[]) {
+  let index = -1
+  const lastIndex = array.length - 1
+  const result = array.slice()
+  while (++index < array.length) {
+    const rand = index + Math.floor(Math.random() * (lastIndex - index + 1))
+    const value = result[rand]
+    result[rand] = result[index]
+    result[index] = value
+  }
+  return result
+}
+
+function partition(array: number[], predicate: (input: number) => boolean) {
+  const result: [number[], number[]] = [[], []]
+  return array.reduce((result, value) => {
+    result[predicate(value) ? 0 : 1].push(value)
+    return result
+  }, result)
+}
+
+const RANGE_END = 100
+
+function numbersToAATree(numbers: number[]): AANode<number> {
+  return numbers.reduce((tree: AANode<number>, n) => {
+    return AA.insert(tree, n, n)
+  }, AA.newTree<number>())
+}
+
+function keyMatchesValues(numbers: number[], tree: AANode<number>): void {
+  numbers.forEach(n => {
+    expect(AA.find(tree, n)).toStrictEqual(n)
+  })
+}
+
+function isInvariant(node: AANode<any>): boolean {
+  if (AA.empty(node)) {
+    return true
   }
 
-  function keyMatchesValues(numbers: number[], tree: AATree<number>): void {
-    numbers.forEach(n => {
-      expect(tree.find(n)).toStrictEqual(n)
-    })
+  const { l: left, r: right, lvl: level } = node
+
+  if (level !== left.lvl + 1) {
+    return false
+  } else if (level !== right.lvl && level !== right.lvl + 1) {
+    return false
+  } else if (!AA.empty(right) && level <= right.r.lvl) {
+    return false
+  } else {
+    return isInvariant(left) && isInvariant(right)
   }
+}
 
-  it('initially generates empty generator', () => {
-    const tree: AATree<number> = AATree.empty()
-    expect(Array.from(tree.keys())).toEqual([])
-
-    expect(tree.find(0)).toBeUndefined()
+describe('AATree', () => {
+  it('starts with an empty tree', () => {
+    let tree: AANode<number> = AA.newTree()
+    expect(AA.keys(tree)).toEqual([])
+    expect(AA.find(tree, 0)).toBeUndefined()
   })
 
   it('preserves increasing sequence', () => {
     const numbers = range(0, RANGE_END)
     const tree = numbersToAATree(numbers)
-
-    expect(tree.isInvariant()).toStrictEqual(true)
-
-    expect(Array.from(tree.keys())).toEqual(numbers)
-
+    expect(isInvariant(tree)).toStrictEqual(true)
+    expect(AA.keys(tree)).toEqual(numbers)
     keyMatchesValues(numbers, tree)
   })
 
@@ -38,10 +83,8 @@ describe('aa tree behavior', () => {
     const numbers = range(0, RANGE_END)
     const tree = numbersToAATree([...numbers].reverse())
 
-    expect(tree.isInvariant()).toStrictEqual(true)
-
-    expect(Array.from(tree.keys())).toEqual(numbers)
-    Array.from(tree.keys())
+    expect(isInvariant(tree)).toStrictEqual(true)
+    expect(AA.keys(tree)).toEqual(numbers)
 
     keyMatchesValues(numbers, tree)
   })
@@ -49,9 +92,8 @@ describe('aa tree behavior', () => {
   it('preserves random sequence', () => {
     const numbers = range(0, RANGE_END)
     const tree = numbersToAATree(shuffle(numbers))
-
-    expect(tree.isInvariant()).toStrictEqual(true)
-    expect(Array.from(tree.keys())).toEqual(numbers)
+    expect(isInvariant(tree)).toStrictEqual(true)
+    expect(AA.keys(tree)).toEqual(numbers)
     keyMatchesValues(numbers, tree)
   })
 
@@ -60,32 +102,24 @@ describe('aa tree behavior', () => {
     const tree = numbersToAATree(shuffle(numbers))
     const [evens, odds] = partition(numbers, x => x % 2 === 0)
 
-    const trimmedAATree = odds.reduce((tree, n) => tree.remove(n), tree)
+    const trimmedAATree = odds.reduce((tree, n) => {
+      return AA.remove(tree, n)
+    }, tree)
+    expect(AA.keys(trimmedAATree)).toEqual(evens)
+    expect(isInvariant(trimmedAATree)).toStrictEqual(true)
 
-    expect(Array.from(trimmedAATree.keys())).toEqual(evens)
-    expect(trimmedAATree.isInvariant()).toStrictEqual(true)
+    const emptyAATree = evens.reduce((tree, n) => {
+      return AA.remove(tree, n)
+    }, trimmedAATree)
 
-    const emptyAATree = evens.reduce((tree, n) => tree.remove(n), trimmedAATree)
-
-    expect(emptyAATree.isInvariant()).toStrictEqual(true)
-    expect(Array.from(emptyAATree.keys())).toEqual([])
+    expect(isInvariant(emptyAATree)).toStrictEqual(true)
+    expect(AA.keys(emptyAATree)).toEqual([])
   })
 
-  it('shifts the tree with the provided amount, using the last value as the default one', () => {
-    const tree = numbersToAATree([0, 4, 10])
-    const shifted = tree.shift(8)
-    expect(shifted.walk()).toEqual([
-      { key: 0, value: 10 },
-      { key: 8, value: 0 },
-      { key: 12, value: 4 },
-      { key: 18, value: 10 },
-    ])
-  })
-
-  it('yields tuples for a given range', () => {
+  it('produces ranges for a given range', () => {
     const tree = numbersToAATree([0, 4, 10, 15, 20])
 
-    expect(Array.from(tree.rangesWithin(3, 22))).toEqual([
+    expect(AA.rangesWithin(tree, 3, 22)).toEqual([
       { start: 0, end: 3, value: 0 },
       { start: 4, end: 9, value: 4 },
       { start: 10, end: 14, value: 10 },
@@ -94,15 +128,15 @@ describe('aa tree behavior', () => {
     ])
   })
 
-  it('finds the largest number that does not exceed a given value', () => {
-    const tree = numbersToAATree([0, 1, 2, 3, 4, 7, 20])
-    expect(tree.findMax(3)).toEqual(3)
-    expect(tree.findMax(12)).toEqual(7)
-    expect(tree.findMax(100)).toEqual(20)
+  it('produces ranges for a collapsed range', () => {
+    const tree = numbersToAATree([0, 1, 2, 3, 4])
+    expect(AA.rangesWithin(tree, 3, 3)).toEqual([{ start: 3, end: Infinity, value: 3 }])
   })
 
-  it('yields tuples for a given range (2nd example)', () => {
-    const tree = numbersToAATree([0, 1, 2, 3, 4])
-    expect(Array.from(tree.rangesWithin(3, 3))).toEqual([{ start: 3, end: Infinity, value: 3 }])
+  it('finds the largest number that does not exceed a given value', () => {
+    const tree = numbersToAATree([0, 1, 2, 3, 4, 7, 20])
+    expect(AA.findMaxKeyValue(tree, 3)[0]).toEqual(3)
+    expect(AA.findMaxKeyValue(tree, 12)[0]).toEqual(7)
+    expect(AA.findMaxKeyValue(tree, 100)[0]).toEqual(20)
   })
 })

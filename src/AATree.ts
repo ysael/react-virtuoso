@@ -1,495 +1,267 @@
-interface NodeData<T> {
-  key: number
-  value: T
+interface NilNode {
+  lvl: 0
 }
 
-interface Range<T> {
+const NIL_NODE: NilNode = { lvl: 0 }
+
+interface NodeData<T> {
+  k: number
+  v: T
+}
+
+interface NonNilAANode<T> {
+  k: number
+  v: T
+  lvl: number
+  l: NonNilAANode<T> | NilNode
+  r: NonNilAANode<T> | NilNode
+}
+
+export interface Range<T> {
   start: number
   end: number
   value: T
 }
 
-type FindCallback<T> = (value: T) => 1 | 0 | -1
+export type AANode<T> = NilNode | NonNilAANode<T>
 
-export type NodeIterator<T> = IterableIterator<NodeData<T>>
-export type RangeIterator<T> = IterableIterator<Range<T>>
+function newAANode<T>(k: number, v: T, lvl: number, l: AANode<T> = NIL_NODE, r: AANode<T> = NIL_NODE): NonNilAANode<T> {
+  return { k, v, lvl, l, r }
+}
 
-class NilNode<T> {
-  public level = 0
+export function empty(node: AANode<any>): node is NilNode {
+  return node === NIL_NODE
+}
 
-  public rebalance(): this {
-    return this
+export function newTree<T>(): AANode<T> {
+  return NIL_NODE
+}
+
+export function remove<T>(node: AANode<T>, key: number): AANode<T> {
+  if (empty(node)) return NIL_NODE
+
+  const { k, l, r } = node
+
+  if (key === k) {
+    if (empty(l)) {
+      return r
+    } else if (empty(r)) {
+      return l
+    } else {
+      const [lastKey, lastValue] = last(l)
+      return adjust(clone(node, { k: lastKey, v: lastValue, l: deleteLast(l) }))
+    }
+  } else if (key < k) {
+    return adjust(clone(node, { l: remove(l, key) }))
+  } else {
+    return adjust(clone(node, { r: remove(r, key) }))
   }
+}
 
-  public adjust(): this {
-    return this
-  }
-
-  public shift(): this {
-    return this
-  }
-
-  public remove(): this {
-    return this
-  }
-
-  public find(): undefined {
+export function find<T>(node: AANode<T>, key: number): T | undefined {
+  if (empty(node)) {
     return
   }
 
-  public findWith(): undefined {
-    return
-  }
-
-  public findMax(): number {
-    return -Infinity
-  }
-
-  public findMaxValue(): undefined {
-    return
-  }
-
-  public insert(key: number, value: T): NonNilNode<T> {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    return new NonNilNode<T>({ key, value, level: 1 })
-  }
-
-  public walkWithin(): NodeData<T>[] {
-    return []
-  }
-
-  public walk(): NodeData<T>[] {
-    return []
-  }
-
-  public ranges<T>(): Range<T>[] {
-    return []
-  }
-
-  public rangesWithin<T>(): Range<T>[] {
-    return []
-  }
-
-  public empty(): this is NilNode<T> {
-    return true
-  }
-
-  public isSingle(): true {
-    return true
-  }
-
-  public isInvariant(): true {
-    return true
-  }
-
-  public keys(): number[] {
-    return []
+  if (key === node.k) {
+    return node.v
+  } else if (key < node.k) {
+    return find(node.l, key)
+  } else {
+    return find(node.r, key)
   }
 }
 
-const NIL_NODE = new NilNode()
+export function findMaxKeyValue<T>(node: AANode<T>, value: number, field: 'k' | 'v' = 'k'): [number, T | undefined] {
+  if (empty(node)) {
+    return [-Infinity, undefined]
+  }
 
-Object.freeze(NIL_NODE)
+  if (node[field] === value) {
+    return [node.k, node.v]
+  }
 
-type Node<T> = NonNilNode<T> | NilNode<T>
+  if (node[field] < value) {
+    const r = findMaxKeyValue(node.r, value, field)
+    if (r[0] === -Infinity) {
+      return [node.k, node.v]
+    } else {
+      return r
+    }
+  }
 
-interface NodeConstructorArgs<T> {
-  key: number
-  value: T
-  level: number
-  left?: Node<T>
-  right?: Node<T>
+  return findMaxKeyValue(node.l, value, field)
 }
 
-class UnreachableCaseError extends Error {
-  constructor(val: never) {
-    super(`Unreachable case: ${val}`)
+export function insert<T>(node: AANode<T>, k: number, v: T): NonNilAANode<T> {
+  if (empty(node)) {
+    return newAANode(k, v, 1)
+  }
+  if (k === node.k) {
+    return clone(node, { k, v })
+  } else if (k < node.k) {
+    return rebalance(clone(node, { l: insert(node.l, k, v) }))
+  } else {
+    return rebalance(clone(node, { r: insert(node.r, k, v) }))
   }
 }
 
-class NonNilNode<T> {
-  public key: number
-  public value: T
-  public level: number
-  public left: Node<T>
-  public right: Node<T>
-
-  public constructor({
-    key,
-    value,
-    level,
-    left = NIL_NODE as NilNode<T>,
-    right = NIL_NODE as NilNode<T>,
-  }: NodeConstructorArgs<T>) {
-    this.key = key
-    this.value = value
-    this.level = level
-    this.left = left
-    this.right = right
+export function walkWithin<T>(node: AANode<T>, start: number, end: number): NodeData<T>[] {
+  if (empty(node)) {
+    return []
   }
 
-  public shift(amount: number): Node<T> {
-    return this.clone({
-      key: this.key + amount,
-      left: this.left.shift(amount),
-      right: this.right.shift(amount),
-    })
+  const { k, v, l, r } = node
+  let result: NodeData<T>[] = []
+  if (k > start) {
+    result = result.concat(walkWithin(l, start, end))
   }
 
-  public remove(key: number): Node<T> {
-    const { left, right } = this
+  if (k >= start && k <= end) {
+    result.push({ k, v })
+  }
 
-    if (key === this.key) {
-      if (left.empty()) {
-        return right
-      } else if (right.empty()) {
-        return left
+  if (k <= end) {
+    result = result.concat(walkWithin(r, start, end))
+  }
+
+  return result
+}
+
+export function walk<T>(node: AANode<T>): NodeData<T>[] {
+  if (empty(node)) {
+    return []
+  }
+
+  return [...walk(node.l), { k: node.k, v: node.v }, ...walk(node.r)]
+}
+
+function last<T>(node: NonNilAANode<T>): [number, T] {
+  return empty(node.r) ? [node.k, node.v] : last(node.r)
+}
+
+function deleteLast<T>(node: NonNilAANode<T>): AANode<T> {
+  return empty(node.r) ? node.l : adjust(clone(node, { r: deleteLast(node.r) }))
+}
+
+function clone<T>(node: NonNilAANode<T>, args: Partial<NonNilAANode<T>>): NonNilAANode<T> {
+  return newAANode(
+    args.k !== undefined ? args.k : node.k,
+    args.v !== undefined ? args.v : node.v,
+    args.lvl !== undefined ? args.lvl : node.lvl,
+    args.l !== undefined ? args.l : node.l,
+    args.r !== undefined ? args.r : node.r
+  )
+}
+
+function isSingle(node: AANode<any>) {
+  return empty(node) || node.lvl > node.r.lvl
+}
+
+function rebalance<T>(node: NonNilAANode<T>): NonNilAANode<T> {
+  return split(skew(node))
+}
+
+function adjust<T>(node: NonNilAANode<T>): NonNilAANode<T> {
+  const { l, r, lvl } = node
+  if (r.lvl >= lvl - 1 && l.lvl >= lvl - 1) {
+    return node
+  } else if (lvl > r.lvl + 1) {
+    if (isSingle(l)) {
+      return skew(clone(node, { lvl: lvl - 1 }))
+    } else {
+      if (!empty(l) && !empty(l.r)) {
+        return clone(l.r, {
+          l: clone(l, { r: l.r.l }),
+          r: clone(node, {
+            l: l.r.r,
+            lvl: lvl - 1,
+          }),
+          lvl: lvl,
+        })
       } else {
-        const [lastKey, lastValue] = left.last()
-        return this.clone({
-          key: lastKey,
-          value: lastValue,
-          left: left.deleteLast(),
-        }).adjust()
+        throw new Error('Unexpected empty nodes')
       }
-    } else if (key < this.key) {
-      return this.clone({
-        left: left.remove(key),
-      }).adjust()
+    }
+  } else {
+    if (isSingle(node)) {
+      return split(clone(node, { lvl: lvl - 1 }))
     } else {
-      return this.clone({
-        right: right.remove(key),
-      }).adjust()
-    }
-  }
+      if (!empty(r) && !empty(r.l)) {
+        const rl = r.l
+        const rlvl = isSingle(rl) ? r.lvl - 1 : r.lvl
 
-  public empty(): this is NilNode<T> {
-    return false
-  }
-
-  public find(key: number): T | undefined {
-    if (key === this.key) {
-      return this.value
-    } else if (key < this.key) {
-      return this.left.find(key)
-    } else {
-      return this.right.find(key)
-    }
-  }
-
-  public findWith(callback: FindCallback<T>): [number, T] | undefined {
-    const result = callback(this.value)
-
-    switch (result) {
-      case -1:
-        return this.left.findWith(callback)
-      case 0:
-        return [this.key, this.value]
-      case 1:
-        return this.right.findWith(callback)
-      default:
-        throw new UnreachableCaseError(result)
-    }
-  }
-
-  public findMax(key: number): number {
-    if (this.key === key) {
-      return key
-    }
-
-    if (this.key < key) {
-      const rightKey = this.right.findMax(key)
-      if (rightKey === -Infinity) {
-        return this.key
+        return clone(rl, {
+          l: clone(node, {
+            r: rl.l,
+            lvl: lvl - 1,
+          }),
+          r: split(clone(r, { l: rl.r, lvl: rlvl })),
+          lvl: rl.lvl + 1,
+        })
       } else {
-        return rightKey
+        throw new Error('Unexpected empty nodes')
       }
-    }
-
-    return this.left.findMax(key)
-  }
-
-  public findMaxValue(key: number): T {
-    if (this.key === key) {
-      return this.value
-    }
-
-    if (this.key < key) {
-      const rightValue = this.right.findMaxValue(key)
-      if (rightValue === undefined) {
-        return this.value
-      } else {
-        return rightValue
-      }
-    }
-
-    return this.left.findMaxValue(key)!
-  }
-
-  public insert(key: number, value: T): NonNilNode<T> {
-    if (key === this.key) {
-      return this.clone({ key, value })
-    } else if (key < this.key) {
-      return this.clone({
-        left: this.left.insert(key, value),
-      }).rebalance()
-    } else {
-      return this.clone({
-        right: this.right.insert(key, value),
-      }).rebalance()
-    }
-  }
-
-  public walkWithin(start: number, end: number): NodeData<T>[] {
-    const { key, value } = this
-    let result: NodeData<T>[] = []
-    if (key > start) {
-      result = result.concat(this.left.walkWithin(start, end))
-    }
-
-    if (key >= start && key <= end) {
-      result.push({ key, value })
-    }
-
-    if (key <= end) {
-      result = result.concat(this.right.walkWithin(start, end))
-    }
-
-    return result
-  }
-
-  public walk(): NodeData<T>[] {
-    return [...this.left.walk(), { key: this.key, value: this.value }, ...this.right.walk()]
-  }
-
-  public last(): [number, T] {
-    if (this.right.empty()) {
-      return [this.key, this.value]
-    } else {
-      return this.right.last()
-    }
-  }
-
-  public deleteLast(): Node<T> {
-    if (this.right.empty()) {
-      return this.left
-    } else {
-      return this.clone({
-        right: this.right.deleteLast(),
-      }).adjust()
-    }
-  }
-
-  public clone(args: Partial<NodeConstructorArgs<T>>): NonNilNode<T> {
-    return new NonNilNode<T>({
-      key: args.key !== undefined ? args.key : this.key,
-      value: args.value !== undefined ? args.value : this.value,
-      level: args.level !== undefined ? args.level : this.level,
-      left: args.left !== undefined ? args.left : this.left,
-      right: args.right !== undefined ? args.right : this.right,
-    })
-  }
-
-  public isSingle(): boolean {
-    return this.level > this.right.level
-  }
-
-  public rebalance(): NonNilNode<T> {
-    return this.skew().split()
-  }
-
-  public adjust(): NonNilNode<T> {
-    const { left, right, level } = this
-    if (right.level >= level - 1 && left.level >= level - 1) {
-      return this
-    } else if (level > right.level + 1) {
-      if (left.isSingle()) {
-        return this.clone({ level: level - 1 }).skew()
-      } else {
-        if (!left.empty() && !left.right.empty()) {
-          return left.right.clone({
-            left: left.clone({ right: left.right.left }),
-            right: this.clone({
-              left: left.right.right,
-              level: level - 1,
-            }),
-            level: level,
-          })
-        } else {
-          throw new Error('Unexpected empty nodes')
-        }
-      }
-    } else {
-      if (this.isSingle()) {
-        return this.clone({ level: level - 1 }).split()
-      } else {
-        if (!right.empty() && !right.left.empty()) {
-          const rl = right.left
-          const rightLevel = rl.isSingle() ? right.level - 1 : right.level
-
-          return rl.clone({
-            left: this.clone({
-              right: rl.left,
-              level: level - 1,
-            }),
-            right: right.clone({ left: rl.right, level: rightLevel }).split(),
-            level: rl.level + 1,
-          })
-        } else {
-          throw new Error('Unexpected empty nodes')
-        }
-      }
-    }
-  }
-
-  public isInvariant(): boolean {
-    const { left, right, level } = this
-
-    if (level !== left.level + 1) {
-      return false
-    } else if (level !== right.level && level !== right.level + 1) {
-      return false
-    } else if (!right.empty() && level <= right.right.level) {
-      return false
-    } else {
-      return left.isInvariant() && right.isInvariant()
-    }
-  }
-
-  public keys(): number[] {
-    return [...this.left.keys(), this.key, ...this.right.keys()]
-  }
-
-  public ranges(): Range<T>[] {
-    return this.toRanges(this.walk())
-  }
-
-  public rangesWithin(startIndex: number, endIndex: number): Range<T>[] {
-    return this.toRanges(this.walkWithin(startIndex, endIndex))
-  }
-
-  private toRanges(nodes: NodeData<T>[]): Range<T>[] {
-    if (nodes.length === 0) {
-      return []
-    }
-
-    const first = nodes[0]
-
-    let { key: start, value } = first
-
-    const result = []
-
-    for (let i = 1; i <= nodes.length; i++) {
-      const nextNode = nodes[i]
-      const end = nextNode ? nextNode.key - 1 : Infinity
-      result.push({ start, end, value })
-
-      if (nextNode) {
-        start = nextNode.key
-        value = nextNode.value
-      }
-    }
-    return result
-  }
-
-  private split(): NonNilNode<T> {
-    const { right, level } = this
-    if (!right.empty() && !right.right.empty() && right.level === level && right.right.level === level) {
-      return right.clone({
-        left: this.clone({ right: right.left }),
-        level: level + 1,
-      })
-    } else {
-      return this
-    }
-  }
-
-  private skew(): NonNilNode<T> {
-    const { left } = this
-
-    if (!left.empty() && left.level === this.level) {
-      return left.clone({
-        right: this.clone({ left: left.right }),
-      })
-    } else {
-      return this
     }
   }
 }
 
-export class AATree<T> {
-  private root: Node<T>
+export function keys(node: AANode<any>): number[] {
+  if (empty(node)) {
+    return []
+  }
+  return [...keys(node.l), node.k, ...keys(node.r)]
+}
 
-  public static empty<T>(): AATree<T> {
-    return new AATree<T>(NIL_NODE as NilNode<T>)
+export function ranges<T>(node: AANode<T>): Range<T>[] {
+  return toRanges(walk(node))
+}
+
+export function rangesWithin<T>(node: AANode<T>, startIndex: number, endIndex: number): Range<T>[] {
+  if (empty(node)) {
+    return []
+  }
+  let adjustedStart = findMaxKeyValue(node, startIndex)[0]
+  return toRanges(walkWithin(node, adjustedStart, endIndex))
+}
+
+function toRanges<T>(nodes: NodeData<T>[]): Range<T>[] {
+  if (nodes.length === 0) {
+    return []
   }
 
-  private constructor(root: Node<T>) {
-    this.root = root
-  }
+  const first = nodes[0]
 
-  public find(key: number): T | undefined {
-    return this.root.find(key)
-  }
+  let { k: start, v } = first
 
-  public findMax(key: number): number {
-    return this.root.findMax(key)
-  }
+  const result = []
 
-  public findMaxValue(key: number): T {
-    if (this.empty()) {
-      throw new Error('Searching for max value in an empty tree')
+  for (let i = 1; i <= nodes.length; i++) {
+    let nextNode = nodes[i]
+    let end = nextNode ? nextNode.k - 1 : Infinity
+    result.push({ start, end, value: v })
+
+    if (nextNode) {
+      start = nextNode.k
+      v = nextNode.v
     }
-    return this.root.findMaxValue(key)!
   }
+  return result
+}
 
-  public findWith(callback: FindCallback<T>): [number, T] | void {
-    return this.root.findWith(callback)
-  }
+function split<T>(node: NonNilAANode<T>): NonNilAANode<T> {
+  const { r, lvl } = node
 
-  public insert(key: number, value: T): AATree<T> {
-    return new AATree(this.root.insert(key, value))
-  }
+  return !empty(r) && !empty(r.r) && r.lvl === lvl && r.r.lvl === lvl ? clone(r, { l: clone(node, { r: r.l }), lvl: lvl + 1 }) : node
+}
 
-  public remove(key: number): AATree<T> {
-    return new AATree(this.root.remove(key))
-  }
+function skew<T>(node: NonNilAANode<T>): NonNilAANode<T> {
+  const { l } = node
 
-  public shift(amount: number) {
-    if (this.empty()) {
-      return this
-    }
-    const defaultValue = this.root.findMaxValue(Infinity)
-    return new AATree(this.root.shift(amount).insert(0, defaultValue!))
-  }
+  return !empty(l) && l.lvl === node.lvl ? clone(l, { r: clone(node, { l: l.r }) }) : node
+}
 
-  public empty() {
-    return this.root.empty()
-  }
-
-  public keys(): number[] {
-    return this.root.keys()
-  }
-
-  public walk(): NodeData<T>[] {
-    return this.root.walk()
-  }
-
-  public walkWithin(start: number, end: number): NodeData<T>[] {
-    const adjustedStart = this.root.findMax(start)
-    return this.root.walkWithin(adjustedStart, end)
-  }
-
-  public ranges(): Range<T>[] {
-    return this.root.ranges()
-  }
-
-  public rangesWithin(start: number, end: number): Range<T>[] {
-    const adjustedStart = this.root.findMax(start)
-    return this.root.rangesWithin(adjustedStart, end)
-  }
-
-  public isInvariant(): boolean {
-    return this.root.isInvariant()
-  }
+// for debugging purposes
+export function toKV(tree: AANode<any>) {
+  return walk(tree).map(node => [node.k, node.v])
 }
